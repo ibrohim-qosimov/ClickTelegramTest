@@ -3,6 +3,7 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types;
 using Telegram.Bot;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace ClickTelegramTest.Code
 {
@@ -39,6 +40,7 @@ namespace ClickTelegramTest.Code
                 var handler = update.Type switch
                 {
                     UpdateType.Message => HandleMessageAsync(botClient, update, cancellationToken),
+                    UpdateType.CallbackQuery => HandleCallbackQueryAsync(botClient, update, cancellationToken),
                     //Yana update larni davom ettirib tutishingiz mumkin
                 };
 
@@ -67,6 +69,14 @@ namespace ClickTelegramTest.Code
             }
         }
 
+        private static async Task HandleCallbackQueryAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+        {
+            if(update.CallbackQuery.Data == "sendinvoice")
+            {
+                // SendInvoice
+            }
+        }
+
         private static async Task HandleMessageAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
             //betda update.Messageni null emasligini tekshirib,
@@ -80,13 +90,26 @@ namespace ClickTelegramTest.Code
 
             if (messageText == "/start")
             {
+                var inlineButton = new InlineKeyboardButton("To'lov")
+                {
+                    CallbackData = "sendinvoice",
+                };
+
+                var inlineKeyboard = new InlineKeyboardMarkup(new[]
+                {
+                    new[]
+                    {
+                        inlineButton
+                    }
+                });
+
                 await botClient.SendTextMessageAsync(
                     chatId: update.Message.Chat.Id,
-                    text: $"Assalomu alaykum <b> {update.Message.From.FirstName} </b>",
+                    text: $"Assalomu alaykum <b> {update.Message.From.FirstName} </b>\n5000 sum to'lovoring!",
                     parseMode: ParseMode.Html,
+                    replyMarkup: inlineKeyboard,
                     cancellationToken: cancellationToken);
             }
-
         }
 
     }
