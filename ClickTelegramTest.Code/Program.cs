@@ -4,11 +4,20 @@ using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types;
 using Telegram.Bot;
 using Telegram.Bot.Types.ReplyMarkups;
+using ClickTelegramTest.Code.Services;
+using System.Text;
+using System.Text.Json;
+using Telegram.Bot.Types.Payments;
+using System.Text.Json.Serialization;
 
 namespace ClickTelegramTest.Code
 {
     internal class Program
     {
+        private static readonly HttpClient _httpClient = new HttpClient();
+        private const string BotToken = "7306566615:AAHIbipJji08j9OshR25KxdfvyRHEKmBtTs"; // BotFather'dan olingan bot token
+        private const string ProviderToken = "398062629:TEST:999999999_F91D8F69C042267444B74CC0B3C747757EB0E065"; // Click yoki boshqa payment provider token
+
         private static async Task Main(string[] args)
         {
             var botClient = new TelegramBotClient("7306566615:AAHIbipJji08j9OshR25KxdfvyRHEKmBtTs");
@@ -41,6 +50,7 @@ namespace ClickTelegramTest.Code
                 {
                     UpdateType.Message => HandleMessageAsync(botClient, update, cancellationToken),
                     UpdateType.CallbackQuery => HandleCallbackQueryAsync(botClient, update, cancellationToken),
+                    UpdateType.PreCheckoutQuery => HandlePreCheckoutQueryAsync(botClient, update.PreCheckoutQuery, cancellationToken)
                     //Yana update larni davom ettirib tutishingiz mumkin
                 };
 
@@ -69,10 +79,18 @@ namespace ClickTelegramTest.Code
             }
         }
 
+        private static async Task HandlePreCheckoutQueryAsync(ITelegramBotClient botClient, PreCheckoutQuery preCheckoutQuery, CancellationToken cancellationToken)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(preCheckoutQuery));
+            await AnswerPreCheckoutQuery(preCheckoutQuery.Id, true);
+        }
+
         private static async Task HandleCallbackQueryAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
-            if(update.CallbackQuery.Data == "sendinvoice")
+            if (update.CallbackQuery.Data == "sendinvoice")
             {
+                Console.WriteLine(update.CallbackQuery.From.Id.ToString());
+                await SendInvoiceAsync(update.CallbackQuery.From.Id.ToString());
                 // SendInvoice
             }
         }
@@ -110,6 +128,52 @@ namespace ClickTelegramTest.Code
                     replyMarkup: inlineKeyboard,
                     cancellationToken: cancellationToken);
             }
+        }
+
+        public static async Task SendInvoiceAsync(string chatId)
+        {
+            var url = $"https://api.telegram.org/bot{BotToken}/sendInvoice";
+
+            var invoise = new
+            {
+                chat_id = chatId,
+                currency = "UZS",
+                description = "Test",
+                payload = "test",
+                provider_token = ProviderToken,
+                prices = new[]
+                {
+                new { label = "Kurs narxi", amount = 15000 } // 15 000 so'm
+            },
+                title = "Test"
+            };
+
+            var content = new StringContent(JsonSerializer.Serialize(invoise), Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(url, content);
+            var result = await response.Content.ReadAsStringAsync();
+            Console.WriteLine(result);
+        }
+
+        public static async Task AnswerPreCheckoutQuery(string preCheckoutQueryId, bool ok, string errorMessage = "")
+        {
+            var url = $"https://api.telegram.org/bot{BotToken}/answerPreCheckoutQuery";
+
+            var requestBody = new
+            {
+                pre_checkout_query_id = preCheckoutQueryId,
+                ok = ok,
+                error_message = !ok ? errorMessage : null
+            };
+
+            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            await _httpClient.PostAsync(url, content);
+        }
+
+        public bool CheckProductAvailability(string payload)
+        {
+            // Bu yerda mahsulotni tekshirish logikasi (DB yoki cache)
+            return true; // Mahsulot mavjud bo‘lsa true, aks holda false
         }
 
     }
